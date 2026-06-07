@@ -180,6 +180,5 @@ When you have old-era players with no SPG/BPG data, the engine scales up your mo
 ## Key Findings from Simulation
 
 - **Era-first spin probability:** Each era has exactly 1/7 chance regardless of team count. 1960s combos (14 teams) come up as often as 2020s combos (30 teams) — but each specific 1960s team is nearly twice as likely to be selected within that era spin.
-- **82-0 rate** with optimal play (1 team reroll + 1 era reroll): approximately 1–3% of completed drafts.
 - **Wilt GSW 1960s** is the single most impactful player in the game by a wide margin (score 97.7 vs next best 89.1).
 - **BPG is undervalued** by the mental formula — rim protectors consistently outperform their estimated score.
