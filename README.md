@@ -53,12 +53,11 @@ Wins = round(82 × min(OVR / 110, 1) ^ 1.15)
 
 | File | Purpose |
 |------|---------|
-| `engine.py` | Exact Python port of the JS scoring engine |
+| `engine.py` | Python port of the Classic mode scoring engine |
 | `simulator.py` | Data loading, spin mechanics, player uniqueness |
 | `optimizer.py` | EV-based pick/reroll decisions, stat_contribution ranking |
 | `analyzer.py` | Monte Carlo runner — win distribution and 82-0 rate |
-| `Engine.js` | Original minified Next.js bundle (source of truth) |
-| `game_logic.ipynb` | Interactive walkthrough of the scoring engine with live JS comparisons |
+| `game_logic.ipynb` | Interactive walkthrough: scoring, player tiers, strategy |
 
 ---
 
@@ -75,6 +74,60 @@ python analyzer.py --n 100000
 
 # No rerolls (pure random)
 python analyzer.py --n 50000 --rerolls-team 0 --rerolls-decade 0
+```
+
+---
+
+## How the Simulator Works
+
+### Simulator (`simulator.py`)
+
+Replicates the game's spin and selection mechanics exactly:
+
+- **Era-first spin:** picks one of 7 eras uniformly at random (1/7 each), then picks a team uniformly within that era — matching the actual game behavior
+- **Player pool:** loads the full player dataset, builds a team/era index, and filters out players with corrupted stat entries
+- **Player uniqueness:** tracks drafted players by `baseSlug` — the same player appearing across multiple team/era combos can only be drafted once per roster
+- **Eligibility:** a player can only be picked if they have at least one open position slot that matches their recorded positions array
+
+### Optimizer (`optimizer.py`)
+
+Decides the best action at each round — pick a player, use the team reroll, or use the era reroll.
+
+**Player scoring (`stat_contribution`):**  
+Every player is scored by their direct weighted contribution to the team OVR formula:
+```
+score = ppg/133.4 × 0.46 + rpg/39.7 × 0.25 + apg/29.3 × 0.18 + spg/6.1 × 0.07 + bpg/3.2 × 0.04
+```
+This is precomputed for every player in every team/era combo at startup.
+
+**Baseline expected value:**  
+For each position slot, the optimizer precomputes the weighted average `stat_contribution` of the best available player for that slot across all 180 possible spins (era-first weighted). This is the baseline — what a random spin is worth for any given open slot.
+
+**Pick value:**  
+When evaluating a player, the pick's total value is:
+```
+pick_value = player_score + sum(expected_future_value for each remaining open slot)
+```
+The future value per remaining slot uses the precomputed baseline. This means each pick is evaluated against what you'd expect to get for those slots in future rounds.
+
+**Reroll decision:**  
+At each round the optimizer computes three values:
+1. `pick_value` — best available player on the current spin
+2. `team_reroll_ev` — average pick value across all other teams in the same era
+3. `era_reroll_ev` — average pick value across all other eras for the same team
+
+It takes whichever action has the highest value, within the 1+1 reroll budget.
+
+### Analyzer (`analyzer.py`)
+
+Runs the optimizer through thousands of simulated drafts via Monte Carlo and collects statistics:
+
+- Runs N complete 5-round drafts using the optimizer's pick/reroll decisions
+- Records final wins, which players appeared, which team/era combos were used
+- Reports win distribution, 82-0 rate, top players in winning rosters, and top combos
+
+```bash
+python analyzer.py --n 10000
 ```
 
 ---
